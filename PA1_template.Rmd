@@ -1,25 +1,117 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research - Peer Assessment 1"
+author: "Eric Hansen"
+date: "Sunday, April 19, 2015"
+output: html_document
 ---
-
 
 ## Loading and preprocessing the data
 
+Here we are reading in the data from the csv provided, and also calling in libraries we will need later in the document
+
+```{r}
+
+library(dplyr)
+library(lattice)
+data<-read.csv("C:/Users/Eric/Desktop/Coursera/activity.csv", header = TRUE, na.strings = "NA", stringsAsFactors = FALSE) #Loads the data
+cleandata<-data[which(is.na(data$steps)==FALSE),] #Removes NA values
 
 
-## What is mean total number of steps taken per day?
+```
+
+## What is mean total number of steps taken per day?  
+  
+  The code below shows how to calculate the daily step totals, and how to plot the total frequency into a histogram chart:
+  
+```{r}
+
+dailysum<-tapply(cleandata$steps, cleandata$date, FUN=sum, na.rm=TRUE)
+
+hist(dailysum, xlab="Daily Steps", ylab="# of Days", main="Histogram of Daily Step Totals")
 
 
 
-## What is the average daily activity pattern?
+```
 
 
 
-## Imputing missing values
+The mean and median total number of steps is shown below:
+
+```{r}
+mean(dailysum)
+median(dailysum)
+
+````
+
+## What is the average daily activity pattern?  
+
+The average mean for each interval is calculated below:
+
+
+```{r}
+intervalmean<-tapply(cleandata$steps, cleandata$interval, FUN=mean)
+plot(intervalmean, xlab="Interval", ylab="Avg. Steps", type="l", main="Average Steps by Interval")
+```
+
+The interval with the highest average step total is the 104th interval, starting at 8:35 am: 
+
+```{r}
+which.max(intervalmean)
+```
+
+## Imputing missing values  
+
+There are 2304 intervals for which we're missing step count data
+
+```{r}
+sum(is.na(data$steps))
+```
+
+Because there are a lot of intervals for which we are missing data, we would like to fill in these missing values with our best estimate for what they could be. In order to do this, I will replace all missing 'steps' values with the average for that particular interval. For example, if the 'steps' value for interval 255 on 2012-10-02 is missing, we would replace the missing value with the average step total from all the other days for interval 255.
+
+This can be done using the code below:
+
+```{r}
+newdata<-mutate(data, steps = ifelse(!is.na(steps),steps, intervalmean))
+```
+
+Using this new dataset we can calculate the new daily totals using our estimations for the missing step values:
+
+```{r}
+newdailysum<-tapply(newdata$steps, newdata$date, FUN=sum)
 
 
 
-## Are there differences in activity patterns between weekdays and weekends?
+```
+
+
+
+The mean and median of our new dataset is calculated below:
+  
+  
+```{r}
+mean(newdailysum)
+median(newdailysum)
+```
+
+You can see now that the mean and median are now even closer together than they were from before we replaced the missing values.
+
+## Are there any differences in activity patterns between weekdays and weekends?
+
+To answer this question we will add a column to our new data set, specifying whether or not the particular date is a weekday or on the weekend.
+
+The following two lines of code will first add a column saying what day of the week the particular date is, and then replace all weekdays with "weekday" and all weekend days with "weekend"
+
+```{r}
+newdata<-mutate(newdata, weekday = weekdays(as.Date(newdata$date)))
+newdata<-mutate(newdata, weekday = ifelse(newdata$weekday %in% c('Saturday', 'Sunday'), "weekend", "weekday"))
+```
+
+Next we will average the number of steps taken per interval, separating weekend days and weekdays and then create a 2 panel plot showing the differences between the two groups:
+```{r}
+weekdaygroup<-aggregate(newdata$steps, list(newdata$interval, newdata$weekday), FUN=mean)
+
+names(weekdaygroup)<-c("interval", "weekday", "steps")
+
+xyplot(steps ~ interval | weekday, data=weekdaygroup,type="l", main="Average Step Count by Interval, Grouped by Day Type")
+```
